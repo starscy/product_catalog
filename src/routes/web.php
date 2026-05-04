@@ -1,13 +1,14 @@
 <?php
 
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Api\ProductController;
 use Illuminate\Support\Facades\Route;
 
 // Публичные маршруты
-Route::get('/', [ProductController::class, 'index'])->name('home');
-Route::get('/products', [ProductController::class, 'index'])->name('products.index');
-Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
+Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/products', [HomeController::class, 'index'])->name('products.index');
+Route::get('/products/{product}', [HomeController::class, 'show'])->name('web.products.show');
 
 // Аутентификация
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');

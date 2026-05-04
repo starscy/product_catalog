@@ -2,45 +2,73 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
+use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Illuminate\Validation\Rule;
 
-class ProductController extends Controller
+class HomeController extends Controller
 {
-    // Публичная страница со списком товаров
+    // app/Http/Controllers/HomeController.php
+
     public function index(Request $request)
     {
+        // 1. Валидация входных параметров (защита + очистка)
+        $validated = $request->validate([
+            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
+            'sort_by'     => ['nullable', 'string', 'in:name,price,created_at'],
+            'direction'   => ['nullable', 'string', 'in:asc,desc'],
+            'page'        => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        // 2. Базовый запрос
         $query = Product::with('category');
 
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
+        // 3. Фильтр по категории
+        if (!empty($validated['category_id'])) {
+            $query->where('category_id', $validated['category_id']);
         }
 
-        if ($request->filled('sort_by')) {
-            $direction = $request->get('direction', 'asc');
-            $query->orderBy($request->sort_by, $direction);
+        // 4. Сортировка (безопасная, через валидированные значения)
+        if (!empty($validated['sort_by'])) {
+            $direction = $validated['direction'] ?? 'asc';
+            $query->orderBy($validated['sort_by'], $direction);
+        } else {
+            $query->latest(); // сортировка по умолчанию
         }
 
+        // 5. Пагинация + сохранение параметров в ссылках
         $products = $query->paginate(12)->withQueryString();
         $categories = Category::all();
 
+        // 6. Возвращаем фильтры для синхронизации с фронтендом
         return Inertia::render('Products/Index', [
             'products' => $products,
             'categories' => $categories,
-            'filters' => $request->only(['category_id', 'sort_by', 'direction'])
+            'filters' => [
+                'category_id' => $validated['category_id'] ?? null,
+                'sort_by' => $validated['sort_by'] ?? null,
+                'direction' => $validated['direction'] ?? 'asc',
+            ]
         ]);
     }
 
     // Детальная страница товара
     public function show(Product $product)
     {
+        // Загружаем категорию (если есть связь)
         $product->load('category');
 
         return Inertia::render('Products/Show', [
-            'product' => $product
+            'product' => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'description' => $product->description,
+                'price' => $product->price,
+                'category' => $product->category?->only(['id', 'name']),
+                'created_at' => $product->created_at,
+            ]
         ]);
     }
 

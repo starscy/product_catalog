@@ -22,7 +22,7 @@
         </span>
 
                 <Link
-                    :href="route('products.show', product.id)"
+                    :href="productUrl"
                     class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                 >
                     Подробнее →
@@ -33,14 +33,13 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
 
-const props = defineProps({
-    product: {
-        type: Object,
-        required: true
-    }
-})
+const props = defineProps({ product: Object })
+
+// ✅ Вычисляемое свойство для безопасного URL
+const productUrl = computed(() => route('web.products.show', { product: props.product.id }))
 
 const formatPrice = (price) => {
     return new Intl.NumberFormat('ru-RU', {

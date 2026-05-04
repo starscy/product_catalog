@@ -44,7 +44,7 @@
 
         <footer class="bg-white shadow-md mt-8 py-6">
             <div class="container mx-auto px-4 text-center text-gray-600">
-                © 2024 Магазин. Все права защищены.
+                © 2026 Магазин. Все права защищены.
             </div>
         </footer>
     </div>
@@ -56,7 +56,6 @@ import { computed } from 'vue'
 
 const page = usePage()
 
-// Безопасное получение пользователя
 const user = computed(() => {
     return page.props.auth?.user || null
 })
