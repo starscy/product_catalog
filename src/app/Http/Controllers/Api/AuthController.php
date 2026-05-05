@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -12,71 +15,108 @@ use Inertia\Inertia;
 
 class AuthController extends Controller
 {
+    /**
+     * Показать страницу входа.
+     */
     public function showLogin()
     {
         return Inertia::render('Auth/Login');
     }
 
+    /**
+     * Показать страницу регистрации.
+     */
     public function showRegister()
     {
         return Inertia::render('Auth/Register');
     }
 
     /**
-     * POST /register — регистрация пользователя
+     * Регистрация нового пользователя.
      */
-    public function register(Request $request)
+    public function register(RegisterRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
-
+        // ✅ Данные уже валидны — берём через validated()
         $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
+            'name' => $request->validated('name'),
+            'email' => $request->validated('email'),
+            'password' => Hash::make($request->validated('password')),
         ]);
 
-        // Логиним пользователя через стандартную Laravel сессию
-        Auth::login($user);
+        // Создаём сессию для Inertia-страниц
+        $this->authenticateUser($user, $request);
 
-        // Редирект на админку
-        return redirect('/admin/products');
+        return $this->jsonAuthResponse($user);
     }
 
     /**
-     * POST /login — аутентификация
+     * Аутентификация пользователя.
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request): JsonResponse
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
+        $user = $this->findAndVerifyUser(
+            $request->validated('email'),
+            $request->validated('password')
+        );
 
-        // ✅ Стандартная аутентификация — создаёт сессию
-        if (!Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
-            throw ValidationException::withMessages([
-                'email' => ['Предоставленные учетные данные неверны.'],
-            ]);
-        }
+        $this->authenticateUser($user, $request);
 
-        // ✅ Регенерация сессии для защиты от фиксации
-        $request->session()->regenerate();
-
-        // ✅ Редирект (Inertia автоматически обработает)
-        return redirect()->route('admin.products.index');
+        return $this->jsonAuthResponse($user);
     }
 
-    public function logout(Request $request)
+    /**
+     * Выход из системы.
+     */
+    public function logout(Request $request): \Illuminate\Http\RedirectResponse
     {
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
+        // Удаляем текущий токен, если он есть
+        $request->user()?->currentAccessToken()?->delete();
+
         return redirect('/');
+    }
+
+    // === Приватные вспомогательные методы ===
+
+    /**
+     * Найти и проверить пользователя.
+     *
+     * @throws ValidationException
+     */
+    private function findAndVerifyUser(string $email, string $password): User
+    {
+        $user = User::where('email', $email)->first();
+
+        if (!$user || !Hash::check($password, $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => ['Предоставленные учетные данные неверны.'],
+            ]);
+        }
+
+        return $user;
+    }
+
+    /**
+     * Аутентифицировать пользователя (создать сессию).
+     */
+    private function authenticateUser(User $user, Request $request): void
+    {
+        Auth::login($user);
+        $request->session()->regenerate();
+    }
+
+    /**
+     * Сформировать ответ с токеном и данными пользователя.
+     */
+    private function jsonAuthResponse(User $user): JsonResponse
+    {
+        return response()->json([
+            'token' => $user->createToken('admin-token')->plainTextToken,
+            'user' => $user->only(['id', 'name', 'email']),
+        ]);
     }
 }

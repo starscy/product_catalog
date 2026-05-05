@@ -69,7 +69,8 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
-import { router, Link } from '@inertiajs/vue3'
+import { Link } from '@inertiajs/vue3'
+import { authenticate } from '@/Utils/auth'
 import Layout from '@/Layouts/MainLayout.vue'
 
 const form = reactive({
@@ -81,19 +82,21 @@ const form = reactive({
 const errors = ref({})
 const processing = ref(false)
 
-const submit = () => {
+const submit = async () => {
     processing.value = true
     errors.value = {}
 
-    // Используем Inertia POST (стандартный для форм)
-    router.post('/login', form, {
-        onError: (err) => {
-            errors.value = err
-            processing.value = false
-        },
-        onFinish: () => {
-            processing.value = false
-        }
-    })
+    // ✅ Используем общую утилиту
+    const result = await authenticate('/login', form)
+
+    if (result.success) {
+        // ✅ Редирект в админку
+        window.location.href = '/admin/products'
+    } else {
+        // ✅ Показываем ошибки
+        errors.value = result.errors
+    }
+
+    processing.value = false
 }
 </script>

@@ -81,7 +81,8 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
-import { router, Link } from '@inertiajs/vue3'
+import { Link } from '@inertiajs/vue3'
+import { authenticate } from '@/Utils/auth'
 import Layout from '@/Layouts/MainLayout.vue'
 
 const form = reactive({
@@ -94,18 +95,19 @@ const form = reactive({
 const errors = ref({})
 const processing = ref(false)
 
-const submit = () => {
+const submit = async () => {
     processing.value = true
     errors.value = {}
 
-    router.post('/register', form, {
-        onError: (err) => {
-            errors.value = err
-            processing.value = false
-        },
-        onFinish: () => {
-            processing.value = false
-        }
-    })
+    // ✅ Используем ту же утилиту
+    const result = await authenticate('/register', form)
+
+    if (result.success) {
+        window.location.href = '/admin/products'
+    } else {
+        errors.value = result.errors
+    }
+
+    processing.value = false
 }
 </script>
