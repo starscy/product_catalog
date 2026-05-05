@@ -13,6 +13,13 @@
                         </Link>
 
                         <template v-if="user">
+                            <Link
+                                href="/admin/products"
+                                class="text-purple-600 hover:text-purple-800 font-medium"
+                            >
+                                Админ-панель
+                            </Link>
+
                             <Link href="/dashboard" class="text-gray-700 hover:text-blue-600">
                                 Личный кабинет
                             </Link>

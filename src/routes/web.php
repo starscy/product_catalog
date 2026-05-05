@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Api\ProductController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 // Публичные маршруты
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -15,14 +16,35 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth'); // ← ИЗМЕНИЛ
 
 // Защищенные маршруты
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth'])->group(function () { // ← ИЗМЕНИЛ
     Route::get('/dashboard', [ProductController::class, 'dashboard'])->name('dashboard');
     Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
     Route::post('/products', [ProductController::class, 'store'])->name('products.store');
     Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
     Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
     Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+});
+
+// === АДМИН-ПАНЕЛЬ (отдельная группа) ===
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () { // ← ИЗМЕНИЛ
+
+    Route::get('/products', [HomeController::class, 'adminIndex'])->name('products.index');
+
+    Route::get('/products/create', function () {
+        return \Inertia\Inertia::render('Admin/Products/Form', [
+            'categories' => \App\Models\Category::all(),
+        ]);
+    })->name('products.create');
+
+    Route::get('/products/{product}/edit', function (\App\Models\Product $product) {
+        return \Inertia\Inertia::render('Admin/Products/Form', [
+            'product' => $product->load('category'),
+            'categories' => \App\Models\Category::all(),
+        ]);
+    })->name('products.edit');
+
+    Route::delete('/products/{product}', [HomeController::class, 'adminDestroy'])->name('products.destroy');
 });

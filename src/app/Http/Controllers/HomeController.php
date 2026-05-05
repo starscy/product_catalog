@@ -42,6 +42,8 @@ class HomeController extends Controller
         $products = $query->paginate(12)->withQueryString();
         $categories = Category::all();
 
+        $isAdmin = str_contains($request->path(), 'admin');
+
         // 6. Возвращаем фильтры для синхронизации с фронтендом
         return Inertia::render('Products/Index', [
             'products' => $products,
@@ -50,6 +52,41 @@ class HomeController extends Controller
                 'category_id' => $validated['category_id'] ?? null,
                 'sort_by' => $validated['sort_by'] ?? null,
                 'direction' => $validated['direction'] ?? 'asc',
+            ]
+        ]);
+    }
+
+    public function adminIndex(Request $request)
+    {
+        $validated = $request->validate([
+            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
+            'search'      => ['nullable', 'string', 'max:255'], // ← добавьте это
+            'page'        => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $query = Product::with('category');
+
+        // Фильтр по категории
+        if (!empty($validated['category_id'])) {
+            $query->where('category_id', $validated['category_id']);
+        }
+
+        // 🔍 Поиск по названию и описанию
+        if (!empty($validated['search'])) {
+            $search = "%{$validated['search']}%";
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'LIKE', $search)
+                    ->orWhere('description', 'LIKE', $search);
+            });
+        }
+
+        $products = $query->latest()->paginate(12)->withQueryString();
+
+        return Inertia::render('Admin/Products/Index', [
+            'products' => $products,
+            'filters' => [
+                'search' => $validated['search'] ?? null, // ← передаём поиск на фронтенд
+                'category_id' => $validated['category_id'] ?? null,
             ]
         ]);
     }

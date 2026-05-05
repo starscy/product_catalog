@@ -99,8 +99,8 @@ const submit = () => {
     errors.value = {}
 
     router.post('/register', form, {
-        onError: (error) => {
-            errors.value = error
+        onError: (err) => {
+            errors.value = err
             processing.value = false
         },
         onFinish: () => {

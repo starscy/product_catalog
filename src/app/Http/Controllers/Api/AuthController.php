@@ -8,12 +8,46 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 
 class AuthController extends Controller
 {
+    public function showLogin()
+    {
+        return Inertia::render('Auth/Login');
+    }
+
+    public function showRegister()
+    {
+        return Inertia::render('Auth/Register');
+    }
+
     /**
-     * POST /api/login
-     * Возвращает токен при успешной аутентификации
+     * POST /register — регистрация пользователя
+     */
+    public function register(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        // Логиним пользователя через стандартную Laravel сессию
+        Auth::login($user);
+
+        // Редирект на админку
+        return redirect('/admin/products');
+    }
+
+    /**
+     * POST /login — аутентификация
      */
     public function login(Request $request)
     {
@@ -22,36 +56,27 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $request->email)->first();
-
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        // ✅ Стандартная аутентификация — создаёт сессию
+        if (!Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
             throw ValidationException::withMessages([
                 'email' => ['Предоставленные учетные данные неверны.'],
             ]);
         }
 
-        // Создаём токен (старый удаляем, если есть)
-        $token = $user->createToken('api-token')->plainTextToken;
+        // ✅ Регенерация сессии для защиты от фиксации
+        $request->session()->regenerate();
 
-        return response()->json([
-            'token' => $token,
-            'token_type' => 'Bearer',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ]
-        ], 200);
+        // ✅ Редирект (Inertia автоматически обработает)
+        return redirect()->route('admin.products.index');
     }
 
-    /**
-     * POST /api/logout
-     * Уничтожает текущий токен
-     */
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        Auth::guard('web')->logout();
 
-        return response()->json(['message' => 'Успешный выход'], 200);
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/');
     }
 }

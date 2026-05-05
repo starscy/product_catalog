@@ -33,6 +33,17 @@
                             />
                             <p v-if="errors.password" class="text-red-500 text-sm mt-1">{{ errors.password }}</p>
                         </div>
+
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center">
+                                <input
+                                    type="checkbox"
+                                    v-model="form.remember"
+                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                />
+                                <span class="ml-2 text-sm text-gray-600">Запомнить меня</span>
+                            </label>
+                        </div>
                     </div>
 
                     <div>
@@ -63,7 +74,8 @@ import Layout from '@/Layouts/MainLayout.vue'
 
 const form = reactive({
     email: '',
-    password: ''
+    password: '',
+    remember: false
 })
 
 const errors = ref({})
@@ -73,9 +85,10 @@ const submit = () => {
     processing.value = true
     errors.value = {}
 
+    // Используем Inertia POST (стандартный для форм)
     router.post('/login', form, {
-        onError: (error) => {
-            errors.value = error
+        onError: (err) => {
+            errors.value = err
             processing.value = false
         },
         onFinish: () => {
