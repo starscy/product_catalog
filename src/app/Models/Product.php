@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes; // ← добавьте этот импорт
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Продукт
+ */
 class Product extends Model
 {
     use SoftDeletes;

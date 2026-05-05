@@ -2,190 +2,151 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
-use Illuminate\Http\Request;
+use App\Http\Requests\Product\FilterProductsRequest;
+use App\Http\Requests\Product\FilterAdminProductsRequest;
+use App\Http\Requests\Product\StoreProductRequest;
+use App\Http\Requests\Product\UpdateProductRequest;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
+use Inertia\Response;
 
+/**
+ * Домашняя страница для всех и админка
+ */
 class HomeController extends Controller
 {
-    // app/Http/Controllers/HomeController.php
-
-    public function index(Request $request)
+    /**
+     * Отображает публичный каталог товаров с фильтрацией и сортировкой.
+     */
+    public function index(FilterProductsRequest $request): Response
     {
-        // 1. Валидация входных параметров (защита + очистка)
-        $validated = $request->validate([
-            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
-            'sort_by'     => ['nullable', 'string', 'in:name,price,created_at'],
-            'direction'   => ['nullable', 'string', 'in:asc,desc'],
-            'page'        => ['nullable', 'integer', 'min:1'],
-        ]);
-
-        // 2. Базовый запрос
         $query = Product::with('category');
 
-        // 3. Фильтр по категории
-        if (!empty($validated['category_id'])) {
-            $query->where('category_id', $validated['category_id']);
+        if ($request->categoryId()) {
+            $query->where('category_id', $request->categoryId());
         }
 
-        // 4. Сортировка (безопасная, через валидированные значения)
-        if (!empty($validated['sort_by'])) {
-            $direction = $validated['direction'] ?? 'asc';
-            $query->orderBy($validated['sort_by'], $direction);
-        } else {
-            $query->latest(); // сортировка по умолчанию
-        }
+        $query->orderBy(
+            $request->sortBy() ?? 'created_at',
+            $request->direction()
+        );
 
-        // 5. Пагинация + сохранение параметров в ссылках
         $products = $query->paginate(12)->withQueryString();
         $categories = Category::all();
 
-        // 6. Возвращаем фильтры для синхронизации с фронтендом
         return Inertia::render('Products/Index', [
             'products' => $products,
             'categories' => $categories,
             'filters' => [
-                'category_id' => $validated['category_id'] ?? null,
-                'sort_by' => $validated['sort_by'] ?? null,
-                'direction' => $validated['direction'] ?? 'asc',
+                'category_id' => $request->categoryId(),
+                'sort_by' => $request->sortBy(),
+                'direction' => $request->direction(),
             ]
         ]);
     }
 
-    public function adminIndex(Request $request)
+    /**
+     * Отображает админ-панель со списком товаров.
+     */
+    public function adminIndex(FilterAdminProductsRequest $request): Response
     {
-        $validated = $request->validate([
-            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
-            'search'      => ['nullable', 'string', 'max:255'],
-            'trashed'     => ['nullable', 'boolean'], // ← добавьте это
-            'page'        => ['nullable', 'integer', 'min:1'],
-        ]);
-
-        // Базовый запрос
         $query = Product::with('category');
 
-        // 🔍 Если показываем удалённые
-        if (!empty($validated['trashed'])) {
-            $query->onlyTrashed(); // только удалённые
+        if ($request->wantsOnlyTrashed()) {
+            $query->onlyTrashed();
         }
 
-        // Фильтр по категории
-        if (!empty($validated['category_id'])) {
-            $query->where('category_id', $validated['category_id']);
+        if ($request->categoryId()) {
+            $query->where('category_id', $request->categoryId());
         }
 
-        // Поиск
-        if (!empty($validated['search'])) {
-            $search = "%{$validated['search']}%";
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'LIKE', $search)
-                    ->orWhere('description', 'LIKE', $search);
-            });
+        if ($request->searchQuery()) {
+            $search = "%{$request->searchQuery()}%";
+            $query->where(fn($q) => $q
+                ->where('name', 'LIKE', $search)
+                ->orWhere('description', 'LIKE', $search)
+            );
         }
 
         $products = $query->latest('deleted_at')->paginate(12)->withQueryString();
 
-        return \Inertia\Inertia::render('Admin/Products/Index', [
+        return Inertia::render('Admin/Products/Index', [
             'products' => $products,
             'filters' => [
-                'search' => $validated['search'] ?? null,
-                'trashed' => $validated['trashed'] ?? null,
-                'category_id' => $validated['category_id'] ?? null,
+                'search' => $request->searchQuery(),
+                'trashed' => $request->boolean('trashed'),
+                'category_id' => $request->categoryId(),
             ]
         ]);
     }
 
-    // Детальная страница товара
-    public function show(Product $product)
+    /**
+     * Отображает детальную страницу товара.
+     */
+    public function show(Product $product): Response
     {
-        // Загружаем категорию (если есть связь)
         $product->load('category');
 
         return Inertia::render('Products/Show', [
-            'product' => [
-                'id' => $product->id,
-                'name' => $product->name,
-                'description' => $product->description,
-                'price' => $product->price,
-                'category' => $product->category?->only(['id', 'name']),
-                'created_at' => $product->created_at,
-            ]
+            'product' => $product->only(['id', 'name', 'description', 'price', 'created_at']) + [
+                    'category' => $product->category?->only(['id', 'name']),
+                ]
         ]);
     }
 
-    public function dashboard()
+    /**
+     * Отображает форму создания нового товара.
+     */
+    public function create(): Response
     {
-        $products = Product::with('category')->latest()->paginate(10);
-        $categories = Category::all();
-
-        return Inertia::render('Dashboard', [
-            'products' => $products,
-            'categories' => $categories
-        ]);
-    }
-
-    // Форма создания товара
-    public function create()
-    {
-        $categories = Category::all();
-
         return Inertia::render('Products/Create', [
-            'categories' => $categories
+            'categories' => Category::all()
         ]);
     }
 
-    // Сохранение товара
-    public function store(Request $request)
+    /**
+     * Сохраняет новый товар в базе данных.
+     *
+     */
+    public function store(StoreProductRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'required|string',
-            'price' => 'required|numeric|min:0|max:999999.99',
-            'category_id' => 'required|exists:categories,id'
-        ]);
+        Product::create($request->validatedProductData());
 
-        $product = Product::create($validated);
-
-        return redirect()->route('dashboard')
-            ->with('success', 'Товар успешно создан!');
+        return redirect()->route('dashboard')->with('success', 'Товар создан!');
     }
 
-    // Форма редактирования
-    public function edit(Product $product)
+    /**
+     * Отображает форму редактирования существующего товара.
+     */
+    public function edit(Product $product): Response
     {
-        $categories = Category::all();
         $product->load('category');
 
         return Inertia::render('Products/Edit', [
             'product' => $product,
-            'categories' => $categories
+            'categories' => Category::all()
         ]);
     }
 
-    // Обновление товара
-    public function update(Request $request, Product $product)
+    /**
+     * Обновляет данные существующего товара.
+     */
+    public function update(UpdateProductRequest $request, Product $product): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'required|string',
-            'price' => 'required|numeric|min:0|max:999999.99',
-            'category_id' => 'required|exists:categories,id'
-        ]);
+        $product->update($request->validatedProductData());
 
-        $product->update($validated);
-
-        return redirect()->route('dashboard')
-            ->with('success', 'Товар успешно обновлен!');
+        return redirect()->route('dashboard')->with('success', 'Товар обновлён!');
     }
 
-    // Удаление товара
-    public function destroy(Product $product)
+    /**
+     * Удаляет товар (мягкое удаление / soft delete).
+     */
+    public function destroy(Product $product): RedirectResponse
     {
         $product->delete();
 
-        return redirect()->route('dashboard')
-            ->with('success', 'Товар успешно удален!');
+        return redirect()->route('dashboard')->with('success', 'Товар удалён!');
     }
 }

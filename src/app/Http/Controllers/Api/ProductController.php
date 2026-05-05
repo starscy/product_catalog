@@ -17,7 +17,9 @@ class ProductController extends Controller
 {
     public function __construct(
         private readonly ProductService $products
-    ) {}
+    )
+    {
+    }
 
     /**
      * GET /api/products
@@ -95,9 +97,8 @@ class ProductController extends Controller
     /**
      * POST /api/products/{product}/restore
      */
-    public function restore($productId): JsonResponse  // ← принимаем ID как число/строку
+    public function restore($productId): JsonResponse
     {
-        // ✅ Находим с учётом мягко удалённых
         $product = Product::withTrashed()->findOrFail($productId);
 
         if (!$product->trashed()) {
@@ -117,7 +118,6 @@ class ProductController extends Controller
      */
     public function forceDelete($productId): JsonResponse
     {
-        // ✅ Находим с учётом мягко удалённых
         $product = Product::withTrashed()->findOrFail($productId);
 
         $this->products->forceDelete($product);
