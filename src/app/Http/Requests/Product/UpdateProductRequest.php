@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Product;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -35,7 +35,7 @@ class UpdateProductRequest extends FormRequest
                 'sometimes',
                 'required',
                 'numeric',
-                'min:0',
+                'min:0.01',
                 'max:999999.99',
                 'regex:/^\d+(\.\d{1,2})?$/',
             ],

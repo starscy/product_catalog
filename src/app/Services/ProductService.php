@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 class ProductService
 {
     /**
-     * Получить список товаров с фильтрацией и пагинацией
+     * Получить список активных товаров с фильтрацией
      */
     public function getFiltered(array $filters = [], int $perPage = 12): LengthAwarePaginator
     {
@@ -33,6 +33,23 @@ class ProductService
     }
 
     /**
+     * Получить список удалённых товаров
+     */
+    public function getTrashed(array $filters = [], int $perPage = 12): LengthAwarePaginator
+    {
+        return Product::with('category')
+            ->onlyTrashed() // ← только мягко удалённые
+            ->when($filters['search'] ?? null, fn(Builder $q, $search) =>
+            $q->where(function(Builder $sub) use ($search) {
+                $sub->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('description', 'LIKE', "%{$search}%");
+            })
+            )
+            ->latest('deleted_at')
+            ->paginate($perPage);
+    }
+
+    /**
      * Создать новый товар
      */
     public function create(array $data): Product
@@ -50,11 +67,11 @@ class ProductService
     }
 
     /**
-     * Удалить товар (мягкое удаление)
+     * Мягкое удаление товара
      */
     public function delete(Product $product): bool
     {
-        return $product->delete();
+        return $product->delete(); // ← с SoftDeletes это мягкое удаление
     }
 
     /**
@@ -66,7 +83,7 @@ class ProductService
     }
 
     /**
-     * Полностью удалить товар (без возможности восстановления)
+     * Полное удаление товара
      */
     public function forceDelete(Product $product): bool
     {
@@ -74,27 +91,16 @@ class ProductService
     }
 
     /**
-     * Получить товар с категорией
+     * Получить товар с категорией (включая удалённые)
      */
-    public function findById(int $id): ?Product
+    public function findById(int $id, bool $withTrashed = false): ?Product
     {
-        return Product::with('category')->find($id);
-    }
+        $query = Product::with('category');
 
-    /**
-     * Получить список удалённых товаров
-     */
-    public function getTrashed(array $filters = [], int $perPage = 12): LengthAwarePaginator
-    {
-        return Product::with('category')
-            ->onlyTrashed()
-            ->when($filters['search'] ?? null, fn(Builder $q, $search) =>
-            $q->where(function(Builder $sub) use ($search) {
-                $sub->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('description', 'LIKE', "%{$search}%");
-            })
-            )
-            ->latest('deleted_at')
-            ->paginate($perPage);
+        if ($withTrashed) {
+            $query->withTrashed();
+        }
+
+        return $query->find($id);
     }
 }

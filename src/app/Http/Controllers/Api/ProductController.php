@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreProductRequest;
-use App\Http\Requests\UpdateProductRequest;
+use App\Http\Requests\Product\StoreProductRequest;
+use App\Http\Requests\Product\UpdateProductRequest;
 use App\Models\Product;
 use App\Services\ProductService;
 use Illuminate\Http\JsonResponse;
@@ -94,11 +94,11 @@ class ProductController extends Controller
 
     /**
      * POST /api/products/{product}/restore
-     * Восстановление товара
      */
-    public function restore(Product $product): JsonResponse
+    public function restore($productId): JsonResponse  // ← принимаем ID как число/строку
     {
-        $product = Product::withTrashed()->findOrFail($product->id);
+        // ✅ Находим с учётом мягко удалённых
+        $product = Product::withTrashed()->findOrFail($productId);
 
         if (!$product->trashed()) {
             return response()->json(['message' => 'Товар не был удалён'], 400);
@@ -114,11 +114,12 @@ class ProductController extends Controller
 
     /**
      * DELETE /api/products/{product}/force
-     * Полное удаление
      */
-    public function forceDelete(Product $product): JsonResponse
+    public function forceDelete($productId): JsonResponse
     {
-        $product = Product::withTrashed()->findOrFail($product->id);
+        // ✅ Находим с учётом мягко удалённых
+        $product = Product::withTrashed()->findOrFail($productId);
+
         $this->products->forceDelete($product);
 
         return response()->json(['message' => 'Товар полностью удалён']);

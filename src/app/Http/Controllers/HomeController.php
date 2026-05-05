@@ -60,18 +60,25 @@ class HomeController extends Controller
     {
         $validated = $request->validate([
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
-            'search'      => ['nullable', 'string', 'max:255'], // ← добавьте это
+            'search'      => ['nullable', 'string', 'max:255'],
+            'trashed'     => ['nullable', 'boolean'], // ← добавьте это
             'page'        => ['nullable', 'integer', 'min:1'],
         ]);
 
+        // Базовый запрос
         $query = Product::with('category');
+
+        // 🔍 Если показываем удалённые
+        if (!empty($validated['trashed'])) {
+            $query->onlyTrashed(); // только удалённые
+        }
 
         // Фильтр по категории
         if (!empty($validated['category_id'])) {
             $query->where('category_id', $validated['category_id']);
         }
 
-        // 🔍 Поиск по названию и описанию
+        // Поиск
         if (!empty($validated['search'])) {
             $search = "%{$validated['search']}%";
             $query->where(function($q) use ($search) {
@@ -80,12 +87,13 @@ class HomeController extends Controller
             });
         }
 
-        $products = $query->latest()->paginate(12)->withQueryString();
+        $products = $query->latest('deleted_at')->paginate(12)->withQueryString();
 
-        return Inertia::render('Admin/Products/Index', [
+        return \Inertia\Inertia::render('Admin/Products/Index', [
             'products' => $products,
             'filters' => [
-                'search' => $validated['search'] ?? null, // ← передаём поиск на фронтенд
+                'search' => $validated['search'] ?? null,
+                'trashed' => $validated['trashed'] ?? null,
                 'category_id' => $validated['category_id'] ?? null,
             ]
         ]);
