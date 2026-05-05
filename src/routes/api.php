@@ -21,8 +21,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::delete('/products/{product}/force', [ProductController::class, 'forceDelete'])
         ->name('products.force-delete');
-
-    Route::post('/logout', [AuthController::class, 'logout']);
 });
 
 // Аутентификация

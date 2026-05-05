@@ -64,6 +64,16 @@ const user = computed(() => {
 })
 
 const logout = () => {
-    router.post('/logout')
+    localStorage.removeItem('admin_token')
+    localStorage.removeItem('admin_user')
+
+    router.post('/logout', {}, {
+        onSuccess: () => {
+            localStorage.removeItem('admin_token')
+            localStorage.removeItem('admin_user')
+        }
+    })
+
+    window.location.href = '/login'
 }
 </script>

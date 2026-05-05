@@ -70,15 +70,18 @@ class AuthController extends Controller
     /**
      * Выход из системы.
      */
-    public function logout(Request $request): RedirectResponse
+    public function logout(Request $request)
     {
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        // Удаляем текущий токен, если он есть
         $request->user()?->currentAccessToken()?->delete();
+
+        if ($request->expectsJson() || $request->header('X-Inertia')) {
+            return response()->json(['message' => 'Успешный выход']);
+        }
 
         return redirect('/');
     }

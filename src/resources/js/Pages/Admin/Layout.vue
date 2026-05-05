@@ -52,8 +52,8 @@ import { computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 
 const page = usePage()
+
 const user = computed(() => {
-    // Пробуем взять из props, если нет — из localStorage
     return page.props.auth?.user || JSON.parse(localStorage.getItem('admin_user') || 'null')
 })
 
@@ -61,26 +61,17 @@ const isActive = (path) => {
     return window.location.pathname.startsWith(path)
 }
 
-const logout = async () => {
-    const token = localStorage.getItem('admin_token')
-
-    if (token) {
-        try {
-            await fetch('/api/logout', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            })
-        } catch (e) {
-            console.error('Logout error:', e)
-        }
-    }
-
-    // Очищаем хранилище и редиректим
+const logout = () => {
     localStorage.removeItem('admin_token')
     localStorage.removeItem('admin_user')
+
+    router.post('/logout', {}, {
+        onSuccess: () => {
+            localStorage.removeItem('admin_token')
+            localStorage.removeItem('admin_user')
+        }
+    })
+
     window.location.href = '/login'
 }
 </script>
