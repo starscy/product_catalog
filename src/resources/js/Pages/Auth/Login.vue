@@ -86,8 +86,7 @@ const submit = async () => {
     processing.value = true
     errors.value = {}
 
-    // ✅ Используем общую утилиту
-    const result = await authenticate('/login', form)
+    const result = await authenticate('/api/login', form)
 
     if (result.success) {
         // ✅ Редирект в админку

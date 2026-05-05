@@ -47,30 +47,44 @@
 </template>
 
 <script setup>
-import { Link, router } from '@inertiajs/vue3'
-import { computed } from 'vue'
-import { usePage } from '@inertiajs/vue3'
+import { Link } from '@inertiajs/vue3'
+import {computed, onMounted} from 'vue'
 
-const page = usePage()
+onMounted(() => {
+    const token = localStorage.getItem('admin_token')
+    if (!token) {
+        window.location.href = '/login'
+    }
+})
 
 const user = computed(() => {
-    return page.props.auth?.user || JSON.parse(localStorage.getItem('admin_user') || 'null')
+    const userStr = localStorage.getItem('admin_user')
+    return userStr ? JSON.parse(userStr) : null
 })
 
 const isActive = (path) => {
     return window.location.pathname.startsWith(path)
 }
 
-const logout = () => {
+const logout = async () => {
+    const token = localStorage.getItem('admin_token')
+
+    if (token) {
+        try {
+            await fetch('/api/logout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            })
+        } catch (e) {
+            console.error('Logout error:', e)
+        }
+    }
+
     localStorage.removeItem('admin_token')
     localStorage.removeItem('admin_user')
-
-    router.post('/logout', {}, {
-        onSuccess: () => {
-            localStorage.removeItem('admin_token')
-            localStorage.removeItem('admin_user')
-        }
-    })
 
     window.location.href = '/login'
 }

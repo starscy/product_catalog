@@ -7,7 +7,6 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -47,8 +46,6 @@ class AuthController extends Controller
             'password' => Hash::make($request->validated('password')),
         ]);
 
-        $this->authenticateUser($user, $request);
-
         return $this->jsonAuthResponse($user);
     }
 
@@ -61,8 +58,6 @@ class AuthController extends Controller
             $request->validated('email'),
             $request->validated('password')
         );
-
-        $this->authenticateUser($user, $request);
 
         return $this->jsonAuthResponse($user);
     }
@@ -104,15 +99,6 @@ class AuthController extends Controller
         }
 
         return $user;
-    }
-
-    /**
-     * Аутентифицировать пользователя (создать сессию).
-     */
-    private function authenticateUser(User $user, Request $request): void
-    {
-        Auth::login($user);
-        $request->session()->regenerate();
     }
 
     /**

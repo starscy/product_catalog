@@ -42,8 +42,6 @@ class HomeController extends Controller
         $products = $query->paginate(12)->withQueryString();
         $categories = Category::all();
 
-        $isAdmin = str_contains($request->path(), 'admin');
-
         // 6. Возвращаем фильтры для синхронизации с фронтендом
         return Inertia::render('Products/Index', [
             'products' => $products,

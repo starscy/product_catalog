@@ -54,26 +54,59 @@
 </template>
 
 <script setup>
-import { Link, router, usePage } from '@inertiajs/vue3'
-import { computed } from 'vue'
+import { Link, router } from '@inertiajs/vue3'
+import { computed, ref, onMounted } from 'vue'
 
-const page = usePage()
+// Получаем пользователя из localStorage (как в AdminLayout)
+const user = ref(null)
 
-const user = computed(() => {
-    return page.props.auth?.user || null
+// Функция для загрузки пользователя из localStorage
+const loadUser = () => {
+    const userStr = localStorage.getItem('admin_user')
+    if (userStr) {
+        try {
+            user.value = JSON.parse(userStr)
+        } catch (e) {
+            user.value = null
+        }
+    } else {
+        user.value = null
+    }
+}
+
+// Загружаем при монтировании
+onMounted(() => {
+    loadUser()
 })
 
-const logout = () => {
+// Слушаем изменения в localStorage (если пользователь обновился в другой вкладке)
+window.addEventListener('storage', (e) => {
+    if (e.key === 'admin_user') {
+        loadUser()
+    }
+})
+
+const logout = async () => {
+    const token = localStorage.getItem('admin_token')
+
+    if (token) {
+        try {
+            await fetch('/api/logout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            })
+        } catch (e) {
+            console.error('Logout error:', e)
+        }
+    }
+
     localStorage.removeItem('admin_token')
     localStorage.removeItem('admin_user')
 
-    router.post('/logout', {}, {
-        onSuccess: () => {
-            localStorage.removeItem('admin_token')
-            localStorage.removeItem('admin_user')
-        }
-    })
-
+    // Редирект на страницу логина
     window.location.href = '/login'
 }
 </script>

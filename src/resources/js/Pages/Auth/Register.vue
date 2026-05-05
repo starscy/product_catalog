@@ -100,7 +100,7 @@ const submit = async () => {
     errors.value = {}
 
     // ✅ Используем ту же утилиту
-    const result = await authenticate('/register', form)
+    const result = await authenticate('/api/register', form)
 
     if (result.success) {
         window.location.href = '/admin/products'

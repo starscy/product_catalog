@@ -2,43 +2,32 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\Api\ProductController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
-// Публичные маршруты
+// ==================== ПУБЛИЧНЫЕ МАРШРУТЫ ====================
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/products', [HomeController::class, 'index'])->name('products.index');
 Route::get('/products/{product}', [HomeController::class, 'show'])->name('web.products.show');
 
-// Аутентификация
+// ==================== АУТЕНТИФИКАЦИЯ (СТРАНИЦЫ) ====================
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth');
 
-// Защищенные маршруты
-Route::middleware(['auth'])->group(function () { // ← ИЗМЕНИЛ
-    Route::get('/dashboard', [ProductController::class, 'dashboard'])->name('dashboard');
-    Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
-    Route::post('/products', [ProductController::class, 'store'])->name('products.store');
-    Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
-    Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
-    Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
-});
-
-// === АДМИН-ПАНЕЛЬ (отдельная группа) ===
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () { // ← ИЗМЕНИЛ
-
+// ==================== АДМИН-ПАНЕЛЬ ====================
+// Все админ-страницы доступны без middleware,
+// проверка авторизации происходит на фронтенде (токен в localStorage)
+Route::prefix('admin')->name('admin.')->group(function () {
+    // Главная админки (список товаров)
     Route::get('/products', [HomeController::class, 'adminIndex'])->name('products.index');
 
+    // Форма создания товара
     Route::get('/products/create', function () {
         return \Inertia\Inertia::render('Admin/Products/Form', [
             'categories' => \App\Models\Category::all(),
         ]);
     })->name('products.create');
 
+    // Форма редактирования товара
     Route::get('/products/{product}/edit', function (\App\Models\Product $product) {
         return \Inertia\Inertia::render('Admin/Products/Form', [
             'product' => $product->load('category'),
@@ -46,5 +35,6 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ]);
     })->name('products.edit');
 
+    // Удаление товара (вызывает API)
     Route::delete('/products/{product}', [HomeController::class, 'adminDestroy'])->name('products.destroy');
 });
