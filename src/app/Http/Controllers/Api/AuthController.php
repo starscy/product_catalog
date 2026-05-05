@@ -3,22 +3,27 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\LoginRequest;
-use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Inertia\Response;
 
+/**
+ * Аутентификация
+ */
 class AuthController extends Controller
 {
     /**
      * Показать страницу входа.
      */
-    public function showLogin()
+    public function showLogin(): Response
     {
         return Inertia::render('Auth/Login');
     }
@@ -26,7 +31,7 @@ class AuthController extends Controller
     /**
      * Показать страницу регистрации.
      */
-    public function showRegister()
+    public function showRegister(): Response
     {
         return Inertia::render('Auth/Register');
     }
@@ -36,14 +41,12 @@ class AuthController extends Controller
      */
     public function register(RegisterRequest $request): JsonResponse
     {
-        // ✅ Данные уже валидны — берём через validated()
         $user = User::create([
             'name' => $request->validated('name'),
             'email' => $request->validated('email'),
             'password' => Hash::make($request->validated('password')),
         ]);
 
-        // Создаём сессию для Inertia-страниц
         $this->authenticateUser($user, $request);
 
         return $this->jsonAuthResponse($user);
@@ -67,7 +70,7 @@ class AuthController extends Controller
     /**
      * Выход из системы.
      */
-    public function logout(Request $request): \Illuminate\Http\RedirectResponse
+    public function logout(Request $request): RedirectResponse
     {
         Auth::guard('web')->logout();
 

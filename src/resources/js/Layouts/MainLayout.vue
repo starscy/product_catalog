@@ -20,10 +20,6 @@
                                 Админ-панель
                             </Link>
 
-                            <Link href="/dashboard" class="text-gray-700 hover:text-blue-600">
-                                Личный кабинет
-                            </Link>
-
                             <button
                                 @click="logout"
                                 class="text-red-600 hover:text-red-800"
