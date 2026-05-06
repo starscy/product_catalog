@@ -1,3 +1,27 @@
+<script setup>
+import { router } from '@inertiajs/vue3'
+import Layout from '@/Layouts/MainLayout.vue'
+import Pagination from '@/Components/Pagination.vue'
+
+const props = defineProps({
+    products: Object,
+    categories: Array
+})
+
+const formatPrice = (price) => {
+    return new Intl.NumberFormat('ru-RU', {
+        style: 'currency',
+        currency: 'RUB'
+    }).format(price)
+}
+
+const deleteProduct = (product) => {
+    if (confirm(`Вы уверены, что хотите удалить товар "${product.name}"?`)) {
+        router.delete(route('products.destroy', product.id))
+    }
+}
+</script>
+
 <template>
     <Layout>
         <div class="container mx-auto px-4 py-8">
@@ -80,26 +104,3 @@
     </Layout>
 </template>
 
-<script setup>
-import { router } from '@inertiajs/vue3'
-import Layout from '@/Layouts/MainLayout.vue'
-import Pagination from '@/Components/Pagination.vue'
-
-const props = defineProps({
-    products: Object,
-    categories: Array
-})
-
-const formatPrice = (price) => {
-    return new Intl.NumberFormat('ru-RU', {
-        style: 'currency',
-        currency: 'RUB'
-    }).format(price)
-}
-
-const deleteProduct = (product) => {
-    if (confirm(`Вы уверены, что хотите удалить товар "${product.name}"?`)) {
-        router.delete(route('products.destroy', product.id))
-    }
-}
-</script>
