@@ -10,3 +10,6 @@
 - **Web Server:** Nginx Alpine
 - **Containerization:** Docker + Docker Compose
 - **Asset Bundler:** Vite
+
+
+<img width="1552" height="977" alt="image" src="https://github.com/user-attachments/assets/f41a9034-7386-4d56-aa9d-8f4b88ed51e2" />
