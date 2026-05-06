@@ -1,71 +1,57 @@
 <script setup>
 import { Link, router } from '@inertiajs/vue3'
-import { useAuth} from "../Composables/useAuth.js";
+import { useAuth } from '@/Composables/useAuth'
 import { onMounted } from 'vue'
+import UserMenu from '@/Components/Admin/UserMenu.vue'
+import NavMenu from '@/Components/Admin/NavMenu.vue'
 
 const { isAuthenticated, userName, logout, loadFromStorage } = useAuth()
 
-onMounted(() => {
-  loadFromStorage()
+const checkAuth = () => {
+    loadFromStorage()
 
-  if (!isAuthenticated.value) {
-    router.get('/login')
-  }
-})
-
-const isActive = (path) => {
-  return window.location.pathname.startsWith(path)
+    if (!isAuthenticated.value) {
+        router.get('/login')
+    }
 }
 
 const handleLogout = async () => {
-  await logout()
+    await logout()
 }
+
+onMounted(() => {
+    checkAuth()
+})
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100">
-    <!-- Верхняя панель -->
-    <header class="bg-white shadow">
-      <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-        <h2 class="text-xl font-bold text-gray-900">
-          <Link href="/admin/products" class="hover:text-blue-600">🛍️ Админ-панель</Link>
-        </h2>
-        <h2 class="text-xl font-bold text-gray-900">
-          <Link href="/" class="hover:text-blue-600">Сайт</Link>
-        </h2>
+    <div class="min-h-screen bg-gray-100">
+        <!-- Верхняя панель -->
+        <header class="bg-white shadow">
+            <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                <div class="flex items-center space-x-8">
+                    <h2 class="text-xl font-bold text-gray-900">
+                        <Link href="/admin/products" class="hover:text-blue-600 transition">
+                            🛍️ Админ-панель
+                        </Link>
+                    </h2>
+                    <h2 class="text-xl font-bold text-gray-900">
+                        <Link href="/" class="hover:text-blue-600 transition">
+                            🌐 Сайт
+                        </Link>
+                    </h2>
+                </div>
 
-        <nav class="flex items-center space-x-4">
-          <span class="text-sm text-gray-600">{{ userName }}</span>
-          <button
-              @click="handleLogout"
-              class="text-sm text-red-600 hover:text-red-800 font-medium"
-          >
-            Выйти
-          </button>
-        </nav>
-      </div>
-    </header>
+                <UserMenu :user-name="userName" @logout="handleLogout" />
+            </div>
+        </header>
 
-    <!-- Меню -->
-    <aside class="bg-white border-b">
-      <div class="max-w-7xl mx-auto px-4 py-2 sm:px-6 lg:px-8">
-        <nav class="flex space-x-6">
-          <Link
-              href="/admin/products"
-              class="py-2 px-1 border-b-2 font-medium text-sm transition"
-              :class="isActive('/admin/products')
-                            ? 'border-blue-500 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-          >
-            📦 Управление товарами
-          </Link>
-        </nav>
-      </div>
-    </aside>
+        <!-- Меню -->
+        <NavMenu />
 
-    <!-- Контент -->
-    <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-      <slot />
-    </main>
-  </div>
+        <!-- Контент -->
+        <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+            <slot />
+        </main>
+    </div>
 </template>
