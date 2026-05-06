@@ -1,3 +1,14 @@
+<script setup>
+import { Link } from '@inertiajs/vue3'
+import { useAuth} from "../Composables/useAuth.js";
+
+const { isAuthenticated, userName, logout } = useAuth()
+
+const handleLogout = async () => {
+    await logout()
+}
+</script>
+
 <template>
     <div class="min-h-screen bg-gray-100">
         <nav class="bg-white shadow-md">
@@ -12,19 +23,26 @@
                             Товары
                         </Link>
 
-                        <template v-if="user">
+                        <!-- Для админа показываем админку -->
+                        <template v-if="isAuthenticated">
                             <Link
                                 href="/admin/products"
                                 class="text-purple-600 hover:text-purple-800 font-medium"
                             >
                                 Админ-панель
                             </Link>
+                        </template>
+                    </div>
 
+                    <!-- Блок авторизации справа -->
+                    <div class="flex space-x-4">
+                        <template v-if="isAuthenticated">
+                            <span class="text-gray-700">{{ userName }}</span>
                             <button
-                                @click="logout"
+                                @click="handleLogout"
                                 class="text-red-600 hover:text-red-800"
                             >
-                                Выйти ({{ user.name }})
+                                Выйти
                             </button>
                         </template>
 
@@ -52,61 +70,3 @@
         </footer>
     </div>
 </template>
-
-<script setup>
-import { Link, router } from '@inertiajs/vue3'
-import { computed, ref, onMounted } from 'vue'
-
-// Получаем пользователя из localStorage (как в AdminLayout)
-const user = ref(null)
-
-// Функция для загрузки пользователя из localStorage
-const loadUser = () => {
-    const userStr = localStorage.getItem('admin_user')
-    if (userStr) {
-        try {
-            user.value = JSON.parse(userStr)
-        } catch (e) {
-            user.value = null
-        }
-    } else {
-        user.value = null
-    }
-}
-
-// Загружаем при монтировании
-onMounted(() => {
-    loadUser()
-})
-
-// Слушаем изменения в localStorage (если пользователь обновился в другой вкладке)
-window.addEventListener('storage', (e) => {
-    if (e.key === 'admin_user') {
-        loadUser()
-    }
-})
-
-const logout = async () => {
-    const token = localStorage.getItem('admin_token')
-
-    if (token) {
-        try {
-            await fetch('/api/logout', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            })
-        } catch (e) {
-            console.error('Logout error:', e)
-        }
-    }
-
-    localStorage.removeItem('admin_token')
-    localStorage.removeItem('admin_user')
-
-    // Редирект на страницу логина
-    window.location.href = '/login'
-}
-</script>

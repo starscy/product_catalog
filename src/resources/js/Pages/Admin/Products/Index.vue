@@ -1,3 +1,157 @@
+<script setup>
+import { Head, Link, router, usePage } from '@inertiajs/vue3'
+import { ref, watch, onBeforeUnmount } from 'vue'
+import AdminLayout from "../../../Layouts/AdminLayout.vue";
+import AdminPagination from '@/Components/Admin/Pagination.vue'
+import { api } from '@/Utils/api'
+
+const props = defineProps({
+    products: Object,
+    filters: Object // { search: string, trashed: boolean, ... }
+})
+
+const loading = ref(false)
+const searchQuery = ref(props.filters?.search || '')
+const showTrashed = ref(props.filters?.trashed || false)
+const searchTimeout = ref(null)
+const DEBOUNCE_DELAY = 300
+
+// Форматирование цены
+const formatPrice = (value) => {
+    return new Intl.NumberFormat('ru-RU', {
+        style: 'currency',
+        currency: 'RUB',
+        minimumFractionDigits: 0
+    }).format(value)
+}
+
+// Форматирование даты
+const formatDate = (dateString) => {
+    if (!dateString) return ''
+    return new Date(dateString).toLocaleDateString('ru-RU', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    })
+}
+
+// Обработчик ввода поиска с дебаунсом
+const handleSearchInput = () => {
+    if (searchTimeout.value) clearTimeout(searchTimeout.value)
+    searchTimeout.value = setTimeout(() => applyFilters(), DEBOUNCE_DELAY)
+}
+
+// Переключение режима "удалённые"
+const toggleTrashed = () => {
+    searchQuery.value = ''
+    applyFilters()
+}
+
+// Очистка поиска
+const clearSearch = () => {
+    searchQuery.value = ''
+    applyFilters()
+}
+
+// Применение фильтров (поиск + trashed)
+const applyFilters = () => {
+    loading.value = true
+
+    const page = usePage()
+    const currentFilters = page.props.filters || {}
+
+    const queryParams = {
+        ...currentFilters,
+        search: searchQuery.value || undefined,
+        trashed: showTrashed.value ? '1' : undefined,
+        page: 1
+    }
+
+    const cleanParams = Object.fromEntries(
+        Object.entries(queryParams).filter(([_, v]) => v !== null && v !== undefined && v !== '')
+    )
+
+    const baseUrl = '/admin/products'
+
+    router.get(baseUrl, cleanParams, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+        onFinish: () => { loading.value = false },
+        onError: (errors) => {
+            console.error('Filter error:', errors)
+            loading.value = false
+        }
+    })
+}
+
+// ✅ Удаление товара (мягкое)
+const confirmDelete = async (product) => {
+    if (!confirm(`Удалить "${product.name}"?`)) return
+    loading.value = true
+
+    try {
+        await api.delete(`/api/products/${product.id}`)
+        router.reload({ preserveScroll: true })
+    } catch {
+        alert('Ошибка при удалении')
+    } finally {
+        loading.value = false
+    }
+}
+
+// ✅ Восстановление товара
+const restoreProduct = async (product) => {
+    if (!confirm(`Восстановить "${product.name}"?`)) return
+    loading.value = true
+
+    try {
+        await api.post(`/api/products/${product.id}/restore`)
+        router.reload({ preserveScroll: true })
+    } catch {
+        alert('Ошибка при восстановлении')
+    } finally {
+        loading.value = false
+    }
+}
+
+// ✅ Полное удаление товара
+const forceDeleteProduct = async (product) => {
+    if (!confirm(`⚠️ Удалить "${product.name}" НАВСЕГДА? Это действие нельзя отменить!`)) return
+    loading.value = true
+
+    try {
+        await api.delete(`/api/products/${product.id}/force`)
+        router.reload({ preserveScroll: true })
+    } catch {
+        alert('Ошибка при полном удалении')
+    } finally {
+        loading.value = false
+    }
+}
+
+// Синхронизация с props.filters
+watch(
+    () => props.filters,
+    (newFilters) => {
+        if (newFilters?.search !== undefined && searchQuery.value !== newFilters.search) {
+            searchQuery.value = newFilters.search || ''
+        }
+        if (newFilters?.trashed !== undefined && showTrashed.value !== !!newFilters.trashed) {
+            showTrashed.value = !!newFilters.trashed
+        }
+    },
+    { deep: true }
+)
+
+// Очистка таймера при размонтировании
+onBeforeUnmount(() => {
+    if (searchTimeout.value) clearTimeout(searchTimeout.value)
+})
+</script>
+
 <template>
     <Head title="Управление товарами" />
 
@@ -182,159 +336,6 @@
     </AdminLayout>
 </template>
 
-<script setup>
-import { Head, Link, router, usePage } from '@inertiajs/vue3'
-import { ref, watch, onBeforeUnmount } from 'vue'
-import AdminLayout from '@/Pages/Admin/Layout.vue'
-import AdminPagination from '@/Components/Admin/Pagination.vue'
-import { api } from '@/Utils/api'
-
-const props = defineProps({
-    products: Object,
-    filters: Object // { search: string, trashed: boolean, ... }
-})
-
-const loading = ref(false)
-const searchQuery = ref(props.filters?.search || '')
-const showTrashed = ref(props.filters?.trashed || false)
-const searchTimeout = ref(null)
-const DEBOUNCE_DELAY = 300
-
-// Форматирование цены
-const formatPrice = (value) => {
-    return new Intl.NumberFormat('ru-RU', {
-        style: 'currency',
-        currency: 'RUB',
-        minimumFractionDigits: 0
-    }).format(value)
-}
-
-// Форматирование даты
-const formatDate = (dateString) => {
-    if (!dateString) return ''
-    return new Date(dateString).toLocaleDateString('ru-RU', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    })
-}
-
-// Обработчик ввода поиска с дебаунсом
-const handleSearchInput = () => {
-    if (searchTimeout.value) clearTimeout(searchTimeout.value)
-    searchTimeout.value = setTimeout(() => applyFilters(), DEBOUNCE_DELAY)
-}
-
-// Переключение режима "удалённые"
-const toggleTrashed = () => {
-    searchQuery.value = ''
-    applyFilters()
-}
-
-// Очистка поиска
-const clearSearch = () => {
-    searchQuery.value = ''
-    applyFilters()
-}
-
-// Применение фильтров (поиск + trashed)
-const applyFilters = () => {
-    loading.value = true
-
-    const page = usePage()
-    const currentFilters = page.props.filters || {}
-
-    const queryParams = {
-        ...currentFilters,
-        search: searchQuery.value || undefined,
-        trashed: showTrashed.value ? '1' : undefined,
-        page: 1
-    }
-
-    const cleanParams = Object.fromEntries(
-        Object.entries(queryParams).filter(([_, v]) => v !== null && v !== undefined && v !== '')
-    )
-
-    const baseUrl = '/admin/products'
-
-    router.get(baseUrl, cleanParams, {
-        preserveState: true,
-        preserveScroll: true,
-        replace: true,
-        onFinish: () => { loading.value = false },
-        onError: (errors) => {
-            console.error('Filter error:', errors)
-            loading.value = false
-        }
-    })
-}
-
-// ✅ Удаление товара (мягкое)
-const confirmDelete = async (product) => {
-    if (!confirm(`Удалить "${product.name}"?`)) return
-    loading.value = true
-
-    try {
-        await api.delete(`/api/products/${product.id}`)
-        router.reload({ preserveScroll: true })
-    } catch {
-        alert('Ошибка при удалении')
-    } finally {
-        loading.value = false
-    }
-}
-
-// ✅ Восстановление товара
-const restoreProduct = async (product) => {
-    if (!confirm(`Восстановить "${product.name}"?`)) return
-    loading.value = true
-
-    try {
-        await api.post(`/api/products/${product.id}/restore`)
-        router.reload({ preserveScroll: true })
-    } catch {
-        alert('Ошибка при восстановлении')
-    } finally {
-        loading.value = false
-    }
-}
-
-// ✅ Полное удаление товара
-const forceDeleteProduct = async (product) => {
-    if (!confirm(`⚠️ Удалить "${product.name}" НАВСЕГДА? Это действие нельзя отменить!`)) return
-    loading.value = true
-
-    try {
-        await api.delete(`/api/products/${product.id}/force`)
-        router.reload({ preserveScroll: true })
-    } catch {
-        alert('Ошибка при полном удалении')
-    } finally {
-        loading.value = false
-    }
-}
-
-// Синхронизация с props.filters
-watch(
-    () => props.filters,
-    (newFilters) => {
-        if (newFilters?.search !== undefined && searchQuery.value !== newFilters.search) {
-            searchQuery.value = newFilters.search || ''
-        }
-        if (newFilters?.trashed !== undefined && showTrashed.value !== !!newFilters.trashed) {
-            showTrashed.value = !!newFilters.trashed
-        }
-    },
-    { deep: true }
-)
-
-// Очистка таймера при размонтировании
-onBeforeUnmount(() => {
-    if (searchTimeout.value) clearTimeout(searchTimeout.value)
-})
-</script>
 
 <style scoped>
 button.absolute {

@@ -112,7 +112,7 @@
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3'
 import { ref, onMounted, computed } from 'vue'
-import AdminLayout from '@/Pages/Admin/Layout.vue'
+import AdminLayout from '@/Pages/Admin/AdminLayout.vue'
 
 const props = defineProps({
     product: Object,      // для редактирования (опционально)
