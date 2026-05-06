@@ -22,4 +22,9 @@ export default defineConfig({
             usePolling: true,
         },
     },
+    resolve: {
+        alias: {
+            '@': '/var/www/html/resources/js',
+        },
+    },
 })

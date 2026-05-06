@@ -1,16 +1,18 @@
 <script setup>
-import { Head, Link, router, usePage } from '@inertiajs/vue3'
-import { ref, watch, onBeforeUnmount } from 'vue'
-import AdminLayout from "../../../Layouts/AdminLayout.vue";
+import {Head, Link, router} from '@inertiajs/vue3'
+import {ref, watch, onBeforeUnmount} from 'vue'
+import AdminLayout from '@/Layouts/AdminLayout.vue'
 import AdminPagination from '@/Components/Admin/Pagination.vue'
-import { api } from '@/Utils/api'
+import {useApi} from "../../../Composables/useApi.js";
 
 const props = defineProps({
     products: Object,
-    filters: Object // { search: string, trashed: boolean, ... }
+    filters: Object
 })
 
-const loading = ref(false)
+// Используем API composable
+const {loading, error, delete: deleteApi, post: postApi} = useApi()
+
 const searchQuery = ref(props.filters?.search || '')
 const showTrashed = ref(props.filters?.trashed || false)
 const searchTimeout = ref(null)
@@ -45,6 +47,7 @@ const handleSearchInput = () => {
 
 // Переключение режима "удалённые"
 const toggleTrashed = () => {
+    showTrashed.value = !showTrashed.value
     searchQuery.value = ''
     applyFilters()
 }
@@ -55,15 +58,9 @@ const clearSearch = () => {
     applyFilters()
 }
 
-// Применение фильтров (поиск + trashed)
+// Применение фильтров
 const applyFilters = () => {
-    loading.value = true
-
-    const page = usePage()
-    const currentFilters = page.props.filters || {}
-
     const queryParams = {
-        ...currentFilters,
         search: searchQuery.value || undefined,
         trashed: showTrashed.value ? '1' : undefined,
         page: 1
@@ -73,62 +70,46 @@ const applyFilters = () => {
         Object.entries(queryParams).filter(([_, v]) => v !== null && v !== undefined && v !== '')
     )
 
-    const baseUrl = '/admin/products'
-
-    router.get(baseUrl, cleanParams, {
+    router.get('/admin/products', cleanParams, {
         preserveState: true,
         preserveScroll: true,
-        replace: true,
-        onFinish: () => { loading.value = false },
-        onError: (errors) => {
-            console.error('Filter error:', errors)
-            loading.value = false
-        }
+        replace: true
     })
 }
 
-// ✅ Удаление товара (мягкое)
+// Удаление товара
 const confirmDelete = async (product) => {
     if (!confirm(`Удалить "${product.name}"?`)) return
-    loading.value = true
 
     try {
-        await api.delete(`/api/products/${product.id}`)
-        router.reload({ preserveScroll: true })
-    } catch {
-        alert('Ошибка при удалении')
-    } finally {
-        loading.value = false
+        await deleteApi(`/api/products/${product.id}`)
+        router.reload({preserveScroll: true})
+    } catch (err) {
+        alert(err.message || 'Ошибка при удалении')
     }
 }
 
-// ✅ Восстановление товара
+// Восстановление товара
 const restoreProduct = async (product) => {
     if (!confirm(`Восстановить "${product.name}"?`)) return
-    loading.value = true
 
     try {
-        await api.post(`/api/products/${product.id}/restore`)
-        router.reload({ preserveScroll: true })
-    } catch {
-        alert('Ошибка при восстановлении')
-    } finally {
-        loading.value = false
+        await postApi(`/api/products/${product.id}/restore`)
+        router.reload({preserveScroll: true})
+    } catch (err) {
+        alert(err.message || 'Ошибка при восстановлении')
     }
 }
 
-// ✅ Полное удаление товара
+// Полное удаление товара
 const forceDeleteProduct = async (product) => {
     if (!confirm(`⚠️ Удалить "${product.name}" НАВСЕГДА? Это действие нельзя отменить!`)) return
-    loading.value = true
 
     try {
-        await api.delete(`/api/products/${product.id}/force`)
-        router.reload({ preserveScroll: true })
-    } catch {
-        alert('Ошибка при полном удалении')
-    } finally {
-        loading.value = false
+        await deleteApi(`/api/products/${product.id}/force`)
+        router.reload({preserveScroll: true})
+    } catch (err) {
+        alert(err.message || 'Ошибка при полном удалении')
     }
 }
 
@@ -136,21 +117,24 @@ const forceDeleteProduct = async (product) => {
 watch(
     () => props.filters,
     (newFilters) => {
-        if (newFilters?.search !== undefined && searchQuery.value !== newFilters.search) {
-            searchQuery.value = newFilters.search || ''
-        }
-        if (newFilters?.trashed !== undefined && showTrashed.value !== !!newFilters.trashed) {
-            showTrashed.value = !!newFilters.trashed
+        if (newFilters) {
+            if (newFilters.search !== undefined && searchQuery.value !== newFilters.search) {
+                searchQuery.value = newFilters.search || ''
+            }
+            if (newFilters.trashed !== undefined && showTrashed.value !== !!newFilters.trashed) {
+                showTrashed.value = !!newFilters.trashed
+            }
         }
     },
-    { deep: true }
+    {deep: true, immediate: true}
 )
 
-// Очистка таймера при размонтировании
+// Очистка таймера
 onBeforeUnmount(() => {
     if (searchTimeout.value) clearTimeout(searchTimeout.value)
 })
 </script>
+
 
 <template>
     <Head title="Управление товарами" />

@@ -1,3 +1,7 @@
+<script setup>
+defineProps({ links: Array })
+</script>
+
 <template>
     <div class="flex justify-center gap-1">
         <template v-for="(link, i) in links" :key="i">
@@ -15,7 +19,3 @@
         </template>
     </div>
 </template>
-
-<script setup>
-defineProps({ links: Array })
-</script>

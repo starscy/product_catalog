@@ -1,3 +1,96 @@
+<script setup>
+import { Head, Link, router } from '@inertiajs/vue3'
+import { ref, onMounted, computed } from 'vue'
+import AdminLayout from "../../../Layouts/AdminLayout.vue";
+import { useApi} from "../../../Composables/useApi.js";
+
+const props = defineProps({
+    product: Object,      // для редактирования (опционально)
+    categories: Array     // список категорий
+})
+
+const isEdit = computed(() => !!props.product?.id)
+
+// Используем API composable
+const { loading, error, post, put, get } = useApi()
+
+// Состояние формы
+const form = ref({
+    name: props.product?.name || '',
+    description: props.product?.description || '',
+    price: props.product?.price || '',
+    category_id: props.product?.category_id || null
+})
+
+// Ошибки валидации (отдельно от error)
+const validationErrors = ref({})
+
+// Категории
+const categories = ref(props.categories || [])
+
+// Загружаем категории, если не переданы из контроллера
+const loadCategories = async () => {
+    if (!categories.value.length) {
+        try {
+            const data = await get('/api/categories')
+            categories.value = data?.data || data || []
+        } catch (e) {
+            console.error('Failed to load categories:', e)
+        }
+    }
+}
+
+// Отправка формы
+const submit = async () => {
+    // Сбрасываем ошибки валидации
+    validationErrors.value = {}
+
+    // Подготавливаем данные
+    const submitData = {
+        ...form.value,
+        price: parseFloat(form.value.price)
+    }
+
+    try {
+        let result
+
+        if (isEdit.value) {
+            // Обновление товара
+            result = await put(`/api/products/${props.product.id}`, submitData)
+        } else {
+            // Создание товара
+            result = await post('/api/products', submitData)
+        }
+
+        // Успех — редирект в список
+        if (result) {
+            router.visit('/admin/products', {
+                preserveScroll: true,
+                onSuccess: () => {
+                    // Можно показать уведомление об успехе
+                    console.log(isEdit.value ? 'Товар обновлён' : 'Товар создан')
+                }
+            })
+        }
+    } catch (err) {
+        // Обрабатываем ошибки валидации
+        if (err.message && err.message.includes('Ошибка валидации')) {
+            // Здесь можно парнуть ошибки из ответа
+            // Но useApi пока не возвращает детальные ошибки
+            validationErrors.value = {
+                form: [err.message]
+            }
+        }
+        console.error('Submit error:', err)
+    }
+}
+
+// Загрузка категорий при монтировании
+onMounted(() => {
+    loadCategories()
+})
+</script>
+
 <template>
     <Head :title="isEdit ? 'Редактирование товара' : 'Новый товар'" />
 
@@ -16,10 +109,22 @@
             <!-- Форма -->
             <form @submit.prevent="submit" class="bg-white rounded-lg shadow p-6 space-y-6">
 
+                <!-- Индикатор загрузки -->
+                <div v-if="loading" class="rounded-md bg-blue-50 p-4 text-blue-700 text-sm">
+                    ⏳ Сохранение...
+                </div>
+
                 <!-- Ошибки -->
-                <div v-if="Object.keys(errors).length > 0" class="rounded-md bg-red-50 p-4">
+                <div v-if="error" class="rounded-md bg-red-50 p-4">
+                    <div class="text-sm text-red-700">{{ error }}</div>
+                </div>
+
+                <!-- Ошибки валидации -->
+                <div v-if="Object.keys(validationErrors).length > 0" class="rounded-md bg-red-50 p-4">
                     <ul class="list-disc list-inside text-sm text-red-700 space-y-1">
-                        <li v-for="(message, field) in errors" :key="field">{{ message }}</li>
+                        <li v-for="(message, field) in validationErrors" :key="field">
+                            <strong>{{ field }}:</strong> {{ Array.isArray(message) ? message.join(', ') : message }}
+                        </li>
                     </ul>
                 </div>
 
@@ -32,9 +137,15 @@
                         v-model="form.name"
                         type="text"
                         required
-                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        :class="[
+                            'block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500',
+                            validationErrors.name ? 'border-red-500' : 'border-gray-300'
+                        ]"
                         placeholder="Например: Смартфон XYZ"
                     >
+                    <p v-if="validationErrors.name" class="mt-1 text-sm text-red-600">
+                        {{ validationErrors.name[0] || validationErrors.name }}
+                    </p>
                 </div>
 
                 <!-- Описание -->
@@ -46,9 +157,15 @@
                         v-model="form.description"
                         required
                         rows="4"
-                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        :class="[
+                            'block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500',
+                            validationErrors.description ? 'border-red-500' : 'border-gray-300'
+                        ]"
                         placeholder="Подробное описание товара..."
                     ></textarea>
+                    <p v-if="validationErrors.description" class="mt-1 text-sm text-red-600">
+                        {{ validationErrors.description[0] || validationErrors.description }}
+                    </p>
                 </div>
 
                 <!-- Цена -->
@@ -62,9 +179,15 @@
                         step="0.01"
                         min="0"
                         required
-                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        :class="[
+                            'block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500',
+                            validationErrors.price ? 'border-red-500' : 'border-gray-300'
+                        ]"
                         placeholder="999.99"
                     >
+                    <p v-if="validationErrors.price" class="mt-1 text-sm text-red-600">
+                        {{ validationErrors.price[0] || validationErrors.price }}
+                    </p>
                 </div>
 
                 <!-- Категория -->
@@ -75,7 +198,10 @@
                     <select
                         v-model="form.category_id"
                         required
-                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        :class="[
+                            'block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500',
+                            validationErrors.category_id ? 'border-red-500' : 'border-gray-300'
+                        ]"
                     >
                         <option :value="null" disabled>Выберите категорию</option>
                         <option
@@ -86,6 +212,9 @@
                             {{ category.name }}
                         </option>
                     </select>
+                    <p v-if="validationErrors.category_id" class="mt-1 text-sm text-red-600">
+                        {{ validationErrors.category_id[0] || validationErrors.category_id }}
+                    </p>
                 </div>
 
                 <!-- Кнопки -->
@@ -98,10 +227,10 @@
                     </Link>
                     <button
                         type="submit"
-                        :disabled="processing"
+                        :disabled="loading"
                         class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                     >
-                        {{ processing ? 'Сохранение...' : 'Сохранить' }}
+                        {{ loading ? 'Сохранение...' : 'Сохранить' }}
                     </button>
                 </div>
             </form>
@@ -109,87 +238,9 @@
     </AdminLayout>
 </template>
 
-<script setup>
-import { Head, Link, router } from '@inertiajs/vue3'
-import { ref, onMounted, computed } from 'vue'
-import AdminLayout from '@/Pages/Admin/AdminLayout.vue'
-
-const props = defineProps({
-    product: Object,      // для редактирования (опционально)
-    categories: Array     // список категорий
-})
-
-const isEdit = computed(() => !!props.product?.id)
-
-const form = ref({
-    name: props.product?.name || '',
-    description: props.product?.description || '',
-    price: props.product?.price || '',
-    category_id: props.product?.category_id || null
-})
-
-const errors = ref({})
-const processing = ref(false)
-const categories = ref(props.categories || [])
-
-// Загружаем категории, если не переданы из контроллера
-onMounted(async () => {
-    if (!categories.value.length) {
-        try {
-            const response = await fetch('/api/categories', {
-                headers: { 'Accept': 'application/json' }
-            })
-            const data = await response.json()
-            categories.value = data.data || data
-        } catch (e) {
-            console.error('Failed to load categories:', e)
-        }
-    }
-})
-
-const submit = async () => {
-    processing.value = true
-    errors.value = {}
-
-    const token = localStorage.getItem('admin_token')
-    const method = isEdit.value ? 'PUT' : 'POST'
-    const url = isEdit.value
-        ? `/api/products/${props.product.id}`
-        : '/api/products'
-
-    try {
-        const response = await fetch(url, {
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({
-                ...form.value,
-                price: parseFloat(form.value.price)
-            })
-        })
-
-        const data = await response.json()
-
-        if (response.ok) {
-            // Успех — редирект в список
-            window.location.href = '/admin/products'
-        } else {
-            // Ошибки валидации
-            if (data.errors) {
-                errors.value = data.errors
-            } else if (data.message) {
-                alert(data.message)
-            }
-        }
-    } catch (e) {
-        console.error('Submit error:', e)
-        alert('Ошибка подключения к серверу')
-    } finally {
-        processing.value = false
-    }
+<style scoped>
+input:disabled, textarea:disabled, select:disabled, button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
 }
-</script>
+</style>
